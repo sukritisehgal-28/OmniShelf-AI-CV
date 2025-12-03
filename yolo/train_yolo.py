@@ -8,16 +8,19 @@ from typing import Any, Dict
 from ultralytics import YOLO
 
 DATA_CONFIG = Path(__file__).resolve().parent / "dataset" / "grozi120" / "data.yaml"
-PRETRAINED_WEIGHTS = "yolo11s.pt"
+PRETRAINED_WEIGHTS = os.getenv("OMNISHELF_YOLO_PRETRAINED", "yolo11s.pt")
 DEVICE = os.getenv("OMNISHELF_YOLO_DEVICE", "auto")
 EPOCHS = int(os.getenv("OMNISHELF_YOLO_EPOCHS", "50"))
 IMGSZ = int(os.getenv("OMNISHELF_YOLO_IMGSZ", "640"))
-BATCH = int(os.getenv("OMNISHELF_YOLO_BATCH", "8"))  # Reduced to 8 for 8GB RAM stability
-WORKERS = int(os.getenv("OMNISHELF_YOLO_WORKERS", "4"))  # Reduced to 4 for stability
-CACHE_MODE = os.getenv("OMNISHELF_YOLO_CACHE", "ram")
+BATCH = int(os.getenv("OMNISHELF_YOLO_BATCH", "4"))
+WORKERS = int(os.getenv("OMNISHELF_YOLO_WORKERS", "2"))
+CACHE_MODE = os.getenv("OMNISHELF_YOLO_CACHE", "False")
 SEED = int(os.getenv("OMNISHELF_YOLO_SEED", "42"))
 OPTIMIZER = os.getenv("OMNISHELF_YOLO_OPTIMIZER", "Adam")
 LR0 = float(os.getenv("OMNISHELF_YOLO_LR0", "0.01"))
+RUN_NAME = os.getenv("OMNISHELF_YOLO_RUN_NAME", "train_gpu")
+SAVE_PERIOD = int(os.getenv("OMNISHELF_YOLO_SAVE_PERIOD", "-1"))
+PLOTS = os.getenv("OMNISHELF_YOLO_PLOTS", "false").lower() in {"1", "true", "yes"}
 
 # Augmentation parameters (as per project proposal)
 # Color jitter (HSV)
@@ -74,7 +77,7 @@ def train() -> None:
     print(f"  Epochs: {EPOCHS}, Batch: {BATCH}, Image Size: {IMGSZ}")
     print(f"  Optimizer: {OPTIMIZER}, LR: {LR0}")
     print(f"  Device: {DEVICE}, Workers: {WORKERS}, Cache: {CACHE_MODE}")
-    print(f"  Seed: {SEED}")
+    print(f"  Seed: {SEED}, Run: {RUN_NAME}, Save period: {SAVE_PERIOD}, Plots: {PLOTS}")
     print(f"  Augmentations:")
     print(f"    HSV: h={HSV_H}, s={HSV_S}, v={HSV_V}")
     print(f"    Geometric: degrees={DEGREES}, translate={TRANSLATE}, scale={SCALE}")
@@ -93,7 +96,9 @@ def train() -> None:
         cache=cache_value,
         workers=WORKERS,
         project=str(Path(__file__).resolve().parent / "runs"),
-        name="detect/train",
+        name=str(RUN_NAME),
+        save_period=SAVE_PERIOD,
+        plots=PLOTS,
         # Augmentation parameters
         hsv_h=HSV_H,
         hsv_s=HSV_S,

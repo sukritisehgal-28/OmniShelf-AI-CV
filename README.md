@@ -61,6 +61,18 @@ OmniShelf AI is an end-to-end retail shelf intelligence platform that combines Y
    python yolo/train_yolo.py
    ```
    Training uses pretrained `yolo11s.pt` weights, the deterministic split from `data.yaml`, Adam optimizer, and the `OMNISHELF_YOLO_SEED` environment variable (default 42) for reproducibility. Adjust `OMNISHELF_YOLO_EPOCHS`, `OMNISHELF_YOLO_IMGSZ`, and `OMNISHELF_YOLO_BATCH` as needed.
+   - On Colab GPU, override via envs and set a unique run name to avoid overwriting:
+     ```bash
+     OMNISHELF_YOLO_DEVICE=0 \
+     OMNISHELF_YOLO_EPOCHS=50 \
+     OMNISHELF_YOLO_BATCH=16 \
+     OMNISHELF_YOLO_WORKERS=2 \
+     OMNISHELF_YOLO_CACHE=ram \
+     OMNISHELF_YOLO_RUN_NAME=train_colab \
+     OMNISHELF_YOLO_PLOTS=false \
+     python yolo/train_yolo.py
+     ```
+     Adjust batch/epochs to fit VRAM; set `OMNISHELF_YOLO_CACHE=disk` if RAM is constrained.
 
 5. **Evaluate on Real Shelves**
    ```bash
