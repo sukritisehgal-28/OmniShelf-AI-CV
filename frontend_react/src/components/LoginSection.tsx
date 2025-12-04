@@ -1,8 +1,5 @@
-import { Briefcase, ShoppingCart } from "lucide-react";
+import { Briefcase, ShoppingCart, ArrowRight } from "lucide-react";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Checkbox } from "./ui/checkbox";
-import { Label } from "./ui/label";
 
 interface LoginSectionProps {
   onNavigate: (page: string) => void;
@@ -14,10 +11,10 @@ export function LoginSection({ onNavigate }: LoginSectionProps) {
       <div className="max-w-[1440px] mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-[32px] mb-3" style={{ fontWeight: 700, color: '#1f2933' }}>
-            Log in to OmniShelf AI
+            Choose Your Portal
           </h2>
           <p className="text-[18px] text-[#6b7280]">
-            Choose your portal to continue.
+            Jump straight into the dashboards—no sign-in required for this demo.
           </p>
         </div>
         
@@ -38,52 +35,17 @@ export function LoginSection({ onNavigate }: LoginSectionProps) {
                 Access comprehensive dashboards, analytics, alerts, and inventory management tools.
               </p>
             </div>
-            
-            {/* Login Form */}
             <div className="space-y-4 mb-6">
-              <div>
-                <Label htmlFor="work-email" className="text-[13px] text-[#1f2933] mb-2 block">
-                  Work Email
-                </Label>
-                <Input 
-                  id="work-email"
-                  type="email" 
-                  placeholder="your.email@store.com"
-                  className="h-11 rounded-lg border-[#e5e7eb]"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="password" className="text-[13px] text-[#1f2933] mb-2 block">
-                  Password
-                </Label>
-                <Input 
-                  id="password"
-                  type="password" 
-                  placeholder="••••••••"
-                  className="h-11 rounded-lg border-[#e5e7eb]"
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Checkbox id="remember" />
-                <Label htmlFor="remember" className="text-[13px] text-[#6b7280] cursor-pointer">
-                  Remember me
-                </Label>
-              </div>
-              
               <Button 
                 onClick={() => onNavigate("admin")}
-                className="w-full bg-[#3498db] text-white hover:bg-[#2980b9] h-12 rounded-lg"
+                className="w-full bg-[#3498db] text-white hover:bg-[#2980b9] h-12 rounded-lg flex items-center justify-center gap-2"
               >
-                Sign in as Admin
+                Go to Admin Dashboard
+                <ArrowRight className="w-4 h-4" />
               </Button>
-              
-              <div className="text-center">
-                <a href="#" className="text-[13px] text-[#3498db] hover:underline">
-                  Forgot password?
-                </a>
-              </div>
+              <p className="text-[13px] text-[#6b7280] text-center">
+                Includes Overview, Inventory, Analytics, Alerts, Detection upload
+              </p>
             </div>
             
             {/* Access pills */}
@@ -125,44 +87,19 @@ export function LoginSection({ onNavigate }: LoginSectionProps) {
                 Paste your shopping list to see shelf locations and real-time availability for every item.
               </p>
             </div>
-            
-            {/* Shopper actions */}
             <div className="space-y-4 mb-6">
-              <div>
-                <Label htmlFor="shopper-email" className="text-[13px] text-[#1f2933] mb-2 block">
-                  Email (optional for saving lists)
-                </Label>
-                <Input 
-                  id="shopper-email"
-                  type="email" 
-                  placeholder="your.email@example.com"
-                  className="h-11 rounded-lg border-[#e5e7eb]"
-                />
-              </div>
-              
               <Button 
                 onClick={() => onNavigate("smartcart")}
-                className="w-full bg-[#22c55e] text-white hover:bg-[#16a34a] h-14 rounded-lg text-[16px]"
+                className="w-full bg-[#22c55e] text-white hover:bg-[#16a34a] h-14 rounded-lg text-[16px] flex items-center justify-center gap-2"
               >
-                Continue to SmartCart
+                Open SmartCart Assistant
+                <ArrowRight className="w-4 h-4" />
               </Button>
               
               <p className="text-[13px] text-center text-[#6b7280]">
                 No account needed – start shopping immediately
               </p>
             </div>
-            
-            {/* Limited access indicator */}
-            <div className="pt-6 border-t border-[#e5e7eb]">
-              <div className="flex items-center justify-center">
-                <span className="text-[11px] bg-[#f8f9fa] text-[#6b7280] px-4 py-2 rounded-full border border-[#e5e7eb]">
-                  Limited access – SmartCart only
-                </span>
-              </div>
-            </div>
-            
-            {/* Add some vertical spacing for visual balance */}
-            <div className="mt-8"></div>
           </div>
         </div>
       </div>

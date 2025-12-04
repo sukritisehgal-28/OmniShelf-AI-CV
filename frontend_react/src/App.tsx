@@ -10,6 +10,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { StoreDashboard } from "./components/StoreDashboard";
 import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { AlertsPage } from "./components/AlertsPage";
+import { ModelPerformanceSection } from "./components/ModelPerformanceSection";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<string>("home");
@@ -48,6 +49,7 @@ export default function App() {
       <HeroSection onNavigate={handleNavigate} />
       <FeatureHighlights />
       <HowItWorks />
+      <ModelPerformanceSection />
       <LoginSection onNavigate={handleNavigate} />
       <Footer />
     </div>

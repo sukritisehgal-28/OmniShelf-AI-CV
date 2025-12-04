@@ -14,7 +14,7 @@ load_dotenv()
 DEFAULT_API_BASE = (
     os.getenv("API_BASE_URL")
     or os.getenv("BACKEND_URL")
-    or "http://localhost:8001"
+    or "http://localhost:8002"
 )
 
 
@@ -59,7 +59,7 @@ def sidebar_controls() -> None:
     st.sidebar.header("Configuration")
     api_base = st.sidebar.text_input("API base URL", value=get_api_base(), help="FastAPI base URL")
     set_api_base(api_base)
-    st.sidebar.caption("Defaults to http://localhost:8001 if not set.")
+    st.sidebar.caption("Defaults to http://localhost:8002 if not set.")
 
 
 def render_stock_dashboard(api_base: str) -> None:

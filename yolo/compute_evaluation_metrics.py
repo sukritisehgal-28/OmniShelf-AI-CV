@@ -18,7 +18,10 @@ from ultralytics import YOLO
 
 def load_validation_metrics(runs_dir: Path) -> Dict[str, float]:
     """Load validation metrics from the latest training run."""
-    results_file = runs_dir / "detect" / "train" / "results.csv"
+    # Try train_colab first, then fall back to train
+    results_file = runs_dir / "detect" / "train_colab" / "results.csv"
+    if not results_file.exists():
+        results_file = runs_dir / "detect" / "train" / "results.csv"
     if not results_file.exists():
         print(f"Warning: No results.csv found at {results_file}")
         return {}
@@ -185,12 +188,12 @@ def generate_report(
         "qualitative_analysis": qualitative_analysis(detections_df),
         "success_criteria_evaluation": {
             "target_val_mAP50": 0.85,
-            "achieved_val_mAP50": val_metrics.get("val_mAP50", 0.0),
-            "meets_target": val_metrics.get("val_mAP50", 0.0) >= 0.85,
+            "achieved_val_mAP50": float(val_metrics.get("val_mAP50", 0.0)),
+            "meets_target": bool(val_metrics.get("val_mAP50", 0.0) >= 0.85),
             "target_precision": 0.88,
-            "achieved_precision": val_metrics.get("val_precision", 0.0),
+            "achieved_precision": float(val_metrics.get("val_precision", 0.0)),
             "target_recall": 0.85,
-            "achieved_recall": val_metrics.get("val_recall", 0.0),
+            "achieved_recall": float(val_metrics.get("val_recall", 0.0)),
         },
     }
 

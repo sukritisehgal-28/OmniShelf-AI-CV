@@ -69,7 +69,7 @@ def _sample_detection(product_name: str = "Cereal", shelf_id: str = "S1"):
         "bbox_x2": 3.0,
         "bbox_y2": 4.0,
         "shelf_id": shelf_id,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now().isoformat(),
     }
 
 
@@ -102,3 +102,29 @@ def test_shopping_list_flow(client, setup_database):
     assert milk_item["count"] == 1
     bread_item = next(item for item in items if item["product_name"] == "Bread")
     assert bread_item["stock_level"] == "OUT"
+
+
+def test_alert_flow(client):
+    payload = {
+        "product_name": "grozi_19",
+        "alert_type": "LOW_STOCK",
+        "message": "Coke running low on shelf S1",
+        "resolved": False,
+    }
+
+    create_resp = client.post("/alerts", json=payload)
+    assert create_resp.status_code == 200
+    created = create_resp.json()
+    assert created["product_name"] == payload["product_name"]
+    assert created["resolved"] is False
+
+    list_resp = client.get("/alerts")
+    assert list_resp.status_code == 200
+    alerts = list_resp.json()
+    assert len(alerts) == 1
+    assert alerts[0]["message"] == payload["message"]
+
+    resolve_resp = client.put(f"/alerts/{created['id']}/resolve")
+    assert resolve_resp.status_code == 200
+    resolved_alert = resolve_resp.json()
+    assert resolved_alert["resolved"] is True

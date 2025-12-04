@@ -149,8 +149,8 @@ Expected output:
 ✅ Classes: 120
 ✅ Train path: images/train
 ✅ Val path: images/val
-✅ Train images: 680
-✅ Val images: 120
+✅ Train images: 576
+✅ Val images: 100
 ```
 
 ### Cell 5: Start Training 🚀
@@ -348,10 +348,19 @@ python yolo/train_yolo.py
 !OMNISHELF_YOLO_BATCH=12 ...  # Instead of 16
 ```
 
-### Issue: "Dataset not found"
-**Cause**: Repository didn't clone properly
+### Issue: "No valid images found" or "Dataset not found"
+**Cause**: Path configuration issue in data.yaml
 
-**Solution**: Check repository is public or you're authenticated
+**Solution**: Verify data.yaml has correct path
+```python
+# Check data.yaml content
+!cat yolo/dataset/grozi120/data.yaml | grep path
+
+# Should show: path: .
+# If it shows anything else, the data.yaml needs to be fixed
+```
+
+**If repository didn't clone properly**: Check repository is public or you're authenticated
 ```python
 # For private repos, use personal access token
 !git clone https://YOUR_TOKEN@github.com/YOUR_USERNAME/omnishelf-ai.git

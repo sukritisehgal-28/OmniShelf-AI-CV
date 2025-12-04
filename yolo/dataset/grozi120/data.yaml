@@ -123,6 +123,6 @@ names:
   118: grozi_119
   119: grozi_120
 nc: 120
-path: ./yolo/dataset/grozi120
+path: .
 train: images/train
 val: images/val

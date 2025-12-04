@@ -65,6 +65,23 @@ export interface AnalyticsData {
 }
 
 // ============================================================================
+// Model Metrics
+// ============================================================================
+
+export interface ModelMetrics {
+  model_path: string;
+  model_exists: boolean;
+  model_loaded: boolean;
+  weights_size_mb: number;
+  metrics: Record<string, number>;
+  real_shelf_proxy_mAP?: number;
+  success_criteria_evaluation?: Record<string, unknown>;
+  tech_stack?: string[];
+  last_updated?: string | null;
+  run_name?: string;
+}
+
+// ============================================================================
 // Stock API Endpoints
 // ============================================================================
 
@@ -171,6 +188,14 @@ export async function fetchAnalytics(): Promise<AnalyticsData> {
     throw new Error(`Failed to fetch analytics: ${response.statusText}`);
   }
   return (await response.json()) as AnalyticsData;
+}
+
+export async function fetchModelMetrics(): Promise<ModelMetrics> {
+  const response = await fetch(`${API_BASE_URL}/model/metrics`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch model metrics: ${response.statusText}`);
+  }
+  return (await response.json()) as ModelMetrics;
 }
 
 // ============================================================================

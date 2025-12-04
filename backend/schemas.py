@@ -89,6 +89,23 @@ class AlertRead(AlertBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# Authentication
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AuthResponse(BaseModel):
+    email: str
+    role: str
+    token: str
+
+
 class ProductRead(BaseModel):
     product_name: str
     display_name: str

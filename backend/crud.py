@@ -9,7 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend import models
-from backend.schemas import DetectionCreate, PlanogramCreate
+from backend.schemas import DetectionCreate, PlanogramCreate, AlertCreate
 
 
 def create_detection(db: Session, detection: DetectionCreate) -> models.ProductDetection:
@@ -170,7 +170,7 @@ def create_or_update_planogram(db: Session, planogram: PlanogramCreate) -> model
     return new_entry
 
 
-def create_alert(db: Session, alert: schemas.AlertCreate) -> models.Alert:
+def create_alert(db: Session, alert: AlertCreate) -> models.Alert:
     db_obj = models.Alert(
         product_name=alert.product_name,
         alert_type=alert.alert_type,
@@ -199,3 +199,28 @@ def resolve_alert(db: Session, alert_id: int) -> Optional[models.Alert]:
         db.commit()
         db.refresh(alert)
     return alert
+
+
+# Authentication helpers
+def get_admin_by_email(db: Session, email: str) -> Optional[models.AdminUser]:
+    return db.query(models.AdminUser).filter(models.AdminUser.email == email).first()
+
+
+def create_admin_user(db: Session, email: str, password_hash: str) -> models.AdminUser:
+    admin = models.AdminUser(email=email, password_hash=password_hash)
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
+    return admin
+
+
+def get_user_by_email(db: Session, email: str) -> Optional[models.UserAccount]:
+    return db.query(models.UserAccount).filter(models.UserAccount.email == email).first()
+
+
+def create_user_account(db: Session, email: str, password_hash: str) -> models.UserAccount:
+    user = models.UserAccount(email=email, password_hash=password_hash)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user

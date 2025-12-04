@@ -88,17 +88,22 @@ OmniShelf AI is an end-to-end retail shelf intelligence platform that combines Y
 
 7. **Run Backend API**
    ```bash
-   uvicorn backend.main:app --reload
+   uvicorn backend.main:app --reload --port 8002
    ```
    Exposes endpoints for detections ingestion, stock queries, shelf summaries, shopping list recommendations, and a health check.
 
 8. **Run Streamlit Frontend**
    ```bash
-   export API_BASE_URL=http://localhost:8001  # or your backend URL
+   export API_BASE_URL=http://localhost:8002  # or your backend URL
    streamlit run frontend/app.py
    ```
    Use the sidebar to switch between the Store Dashboard and SmartCart Assistant views.
    - React UI is preserved under `frontend_react/` (run with `npm install && npm run dev`), and its container build lives in `Dockerfile.frontend-react`.
+
+   Quick dev start (both services, assumes venv + trained model in `yolo/runs/detect/train_colab/weights/best.pt`):
+   ```bash
+   ./scripts/dev_start.sh
+   ```
 
 ## Docker (full stack)
 Run everything with Docker Compose (PostgreSQL + FastAPI + Streamlit):
@@ -108,6 +113,17 @@ docker-compose up --build
 - Backend: http://localhost:8002 (container talks to Postgres at `db:5432`)
 - Streamlit Frontend: http://localhost:8501 (uses `API_BASE_URL`; defaults to `http://backend:8002` in Compose)
 - Database: Postgres exposed on localhost:5436 (data persisted in the `pgdata` volume)
+
+## Populate the dashboard (demo data)
+With the backend running against your Postgres instance, you can quickly fill the dashboard with detections and 7-day history:
+```bash
+python load_detections.py          # load real-shelf evaluation detections
+python generate_stock_history.py   # backfill 7 days of stock snapshots
+```
+Or run both at once:
+```bash
+./scripts/seed_demo_data.sh
+```
 
 ## Metrics & Analytics
 - **Training Metrics:** YOLO training logs include mAP, precision, recall, and loss curves.

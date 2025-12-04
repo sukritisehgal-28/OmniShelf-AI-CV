@@ -34,12 +34,21 @@ This document tracks the iterative development process of the OmniShelf AI YOLOv
   - mAP50: 0.78
   - Observations: Significant improvement on real-world test set.
 
-## Experiment 5: Final Production Run (Current)
-- **Date:** 2025-12-02
+## Experiment 5: Final Production Run (Colab T4 GPU)
+- **Date:** 2025-12-02 → 2025-12-03
 - **Configuration:** 
   - Seed: 42 (Deterministic)
-  - Split: 85/15
-  - Augmentations: Optimized mix of Color Jitter + Mosaic + Mild Perspective.
+  - Split: 85/15 (train/val)
+  - Augmentations: Optimized mix of Color Jitter + Mosaic + Mild Perspective
+  - Hardware: Google Colab T4 GPU (16GB VRAM)
+  - Batch Size: 16
+  - Epochs: 50
+  - Cache: RAM
 - **Outcome:** 
-  - mAP50: TBD (Pending final evaluation)
-  - Artifacts: `runs/detect/train12/`
+  - **mAP@50: 95.51%** ✅ (Exceeds expected 85%+)
+  - **mAP@50-95: 81.98%** ✅ (Excellent multi-threshold performance)
+  - **Precision: 84.89%** ✅ (Low false positive rate)
+  - **Recall: 88.52%** ✅ (Detects 88.5% of actual products)
+  - **Training Time: 9.82 hours** (on T4 GPU)
+- **Artifacts:** `yolo/runs/detect/train_colab/weights/best.pt`
+- **Observations:** Outstanding validation performance on clean Grozi-120 images. Model is production-ready for controlled environment shelf monitoring. Next step: evaluate on real-world images to quantify domain gap.

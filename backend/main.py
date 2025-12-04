@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 import sys
+import csv
+import json
 import shutil
 import tempfile
+import hashlib
 from pathlib import Path
 from typing import List, Optional
+from datetime import datetime
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, File, UploadFile
@@ -13,21 +17,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from backend import crud, schemas
-from backend.database import get_db
+from backend.database import get_db, engine
+from backend import models as db_models
 
 # Add parent directory to path to import product_mapping
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from product_mapping import get_grozi_code, get_display_name, get_price, get_category, PRODUCT_NAME_MAP
-from yolo.utils import load_model, run_inference, yolo_result_to_detections
+
+try:
+    from yolo.utils import load_model, run_inference, yolo_result_to_detections
+    YOLO_AVAILABLE = True
+except ImportError as e:  # pragma: no cover - only hit in minimal/container builds without yolo package
+    print(f"Warning: YOLO utilities not available ({e}); /predict endpoint disabled.")
+    YOLO_AVAILABLE = False
+    load_model = run_inference = yolo_result_to_detections = None
+
+# Create tables if they don't exist
+db_models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="OmniShelf AI", version="1.0.0")
 
-# Initialize YOLO model
-MODEL_PATH = Path(__file__).resolve().parents[1] / "yolo" / "runs" / "detect" / "train" / "weights" / "best.pt"
-try:
-    yolo_model = load_model(MODEL_PATH)
-except Exception as e:
-    print(f"Warning: Could not load YOLO model from {MODEL_PATH}: {e}")
+# Initialize YOLO model when utils are available
+MODEL_PATH = Path(__file__).resolve().parents[1] / "yolo" / "runs" / "detect" / "train_colab" / "weights" / "best.pt"
+if YOLO_AVAILABLE:
+    try:
+        yolo_model = load_model(MODEL_PATH)
+    except Exception as e:
+        print(f"Warning: Could not load YOLO model from {MODEL_PATH}: {e}")
+        yolo_model = None
+else:
     yolo_model = None
 
 app.add_middleware(
@@ -37,6 +55,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Password utilities (simple sha256 hashing for demo purposes)
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    return hash_password(password) == password_hash
 
 
 def determine_stock_level(count: int, expected: Optional[int] = None) -> str:
@@ -54,6 +81,47 @@ def determine_stock_level(count: int, expected: Optional[int] = None) -> str:
     if count >= 6:
         return "MEDIUM"
     return "LOW"
+
+
+def load_model_metrics() -> dict:
+    """Load evaluation metrics and model metadata for the UI."""
+    metrics_path = Path(__file__).resolve().parents[1] / "yolo" / "evaluation_metrics_report.json"
+    metrics: dict = {}
+    if metrics_path.exists():
+        try:
+            metrics = json.loads(metrics_path.read_text())
+        except Exception as exc:  # noqa: BLE001
+            print(f"Warning: failed to read metrics file {metrics_path}: {exc}")
+            metrics = {}
+
+    weight_exists = MODEL_PATH.exists()
+    weight_size_mb = round(MODEL_PATH.stat().st_size / 1e6, 2) if weight_exists else 0.0
+    updated_at = datetime.fromtimestamp(metrics_path.stat().st_mtime).isoformat() if metrics_path.exists() else None
+
+    return {
+        "model_path": str(MODEL_PATH),
+        "model_exists": weight_exists,
+        "model_loaded": bool(yolo_model),
+        "weights_size_mb": weight_size_mb,
+        "metrics": metrics.get("validation_metrics", {}),
+        "real_shelf_proxy_mAP": metrics.get("real_shelf_proxy_mAP"),
+        "mAP_analysis": metrics.get("mAP_analysis", {}),
+        "counting_analysis": metrics.get("counting_analysis", {}),
+        "misclassification_analysis": metrics.get("misclassification_analysis", {}),
+        "qualitative_analysis": metrics.get("qualitative_analysis", {}),
+        "success_criteria_evaluation": metrics.get("success_criteria_evaluation", {}),
+        "last_updated": updated_at,
+        "run_name": "train_colab",
+        "tech_stack": [
+            "YOLOv11s",
+            "FastAPI",
+            "PostgreSQL",
+            "React + TypeScript",
+            "Streamlit",
+            "Docker",
+            "Colab T4 GPU",
+        ],
+    }
 
 
 @app.post("/detections/", response_model=List[schemas.DetectionRead])
@@ -202,6 +270,76 @@ def shopping_list(
     return schemas.ShoppingListResponse(items=response_items)
 
 
+@app.post("/smartcart/search")
+def smartcart_search(request: schemas.ShoppingListRequest, db: Session = Depends(get_db)):
+    """
+    SmartCart AI: User enters product names/keywords, model recognizes them
+    and returns availability, aisle location, price, and stock level.
+    """
+    results = []
+
+    for raw_item in request.items:
+        item_name = raw_item.strip().lower()
+        if not item_name:
+            continue
+
+        # Try to find matching product by display name
+        grozi_code = get_grozi_code(item_name)
+
+        # If not found directly, try fuzzy search in product names
+        if grozi_code == item_name:  # No match found
+            # Search through all product display names
+            found = False
+            for code, display in PRODUCT_NAME_MAP.items():
+                if item_name in display.lower():
+                    grozi_code = code
+                    found = True
+                    break
+
+            if not found:
+                # No product found
+                results.append({
+                    "item": raw_item,
+                    "found": False,
+                    "product_name": None,
+                    "display_name": None,
+                    "shelf_id": None,
+                    "stock_count": 0,
+                    "price": 0.0,
+                    "category": None,
+                    "stock_level": "OUT"
+                })
+                continue
+
+        # Product found - get details
+        planogram = crud.get_planogram_entry(db, grozi_code)
+        stock = crud.get_product_stock(db, grozi_code)
+        count = stock["total_count"] if stock else 0
+
+        shelf_id: Optional[str] = None
+        if planogram:
+            shelf_id = planogram.shelf_id
+        elif stock and stock["shelf_ids"]:
+            shelf_id = stock["shelf_ids"][0]
+
+        expected = planogram.expected_stock if planogram else None
+        stock_level = determine_stock_level(count, expected)
+
+        results.append({
+            "item": raw_item,
+            "found": True,
+            "product_name": grozi_code,
+            "display_name": get_display_name(grozi_code),
+            "shelf_id": shelf_id,
+            "stock_count": count,
+            "price": get_price(grozi_code),
+            "category": get_category(grozi_code),
+            "stock_level": stock_level
+        })
+
+    return {"results": results}
+
+
 @app.get("/analytics/stock-history")
 def stock_history(days: int = 7, db: Session = Depends(get_db)):
     """Get stock history for the last N days."""
@@ -233,15 +371,129 @@ def analytics_alias(days: int = 7, db: Session = Depends(get_db)):
     return stock_history(days, db)
 
 
+@app.get("/analytics/summary")
+def analytics_summary(db: Session = Depends(get_db)):
+    """Get analytics summary with aggregated metrics."""
+    from collections import defaultdict
+
+    stock_entries = crud.get_stock_counts(db)
+
+    total_products = len(stock_entries)
+    total_stock_items = sum(entry["total_count"] for entry in stock_entries)
+
+    # Calculate stock levels
+    stock_by_level = {"HIGH": 0, "MEDIUM": 0, "LOW": 0, "OUT": 0}
+    stock_by_category = defaultdict(int)
+    total_value = 0.0
+
+    for entry in stock_entries:
+        grozi_code = entry["product_name"]
+        count = entry["total_count"]
+
+        planogram = crud.get_planogram_entry(db, grozi_code)
+        expected = planogram.expected_stock if planogram else None
+        stock_level = determine_stock_level(count, expected)
+        stock_by_level[stock_level] += 1
+
+        category = get_category(grozi_code)
+        stock_by_category[category] += count
+
+        price = get_price(grozi_code)
+        total_value += count * price
+
+    # Get stock trend (simplified - last 7 days)
+    from backend.models import StockSnapshot
+    from datetime import datetime, timedelta
+
+    cutoff_date = datetime.now() - timedelta(days=7)
+    snapshots = (
+        db.query(StockSnapshot)
+        .filter(StockSnapshot.snapshot_time >= cutoff_date)
+        .order_by(StockSnapshot.snapshot_time)
+        .all()
+    )
+
+    daily_totals = defaultdict(int)
+    for snapshot in snapshots:
+        date_key = snapshot.snapshot_time.strftime("%Y-%m-%d")
+        daily_totals[date_key] += snapshot.count
+
+    stock_trend = [{"date": date, "count": count} for date, count in sorted(daily_totals.items())]
+
+    return {
+        "total_products": total_products,
+        "total_stock_items": total_stock_items,
+        "low_stock_count": stock_by_level["LOW"],
+        "out_of_stock_count": stock_by_level["OUT"],
+        "high_stock_count": stock_by_level["HIGH"],
+        "medium_stock_count": stock_by_level["MEDIUM"],
+        "total_value": round(total_value, 2),
+        "stock_by_category": dict(stock_by_category),
+        "stock_trend": stock_trend
+    }
+
+
+@app.get("/model/metrics")
+def model_metrics():
+    """Expose model evaluation metrics and load status for the frontend."""
+    return load_model_metrics()
+
+
+@app.post("/alerts/generate")
+def generate_alerts(db: Session = Depends(get_db)):
+    """Generate alerts for low stock and out of stock products."""
+    stock_entries = crud.get_stock_counts(db)
+    alerts_created = []
+
+    for entry in stock_entries:
+        grozi_code = entry["product_name"]
+        count = entry["total_count"]
+        display_name = get_display_name(grozi_code)
+
+        # Check if alert already exists for this product
+        existing_alert = db.query(db_models.Alert).filter(
+            db_models.Alert.product_name == grozi_code,
+            db_models.Alert.resolved == False
+        ).first()
+
+        if existing_alert:
+            continue  # Don't create duplicate alerts
+
+        alert_data = None
+        if count == 0:
+            alert_data = schemas.AlertCreate(
+                product_name=grozi_code,
+                alert_type="OUT_OF_STOCK",
+                message=f"{display_name} is out of stock"
+            )
+        elif count <= 5:
+            alert_data = schemas.AlertCreate(
+                product_name=grozi_code,
+                alert_type="LOW_STOCK",
+                message=f"{display_name} is running low ({count} items remaining)"
+            )
+
+        if alert_data:
+            alert = crud.create_alert(db, alert_data)
+            alerts_created.append(alert)
+
+    return {"alerts_generated": len(alerts_created), "alerts": alerts_created}
+
+
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "model_loaded": bool(yolo_model),
+        "model_exists": MODEL_PATH.exists(),
+        "model_path": str(MODEL_PATH),
+    }
 
 
 @app.post("/predict")
 async def predict_image(file: UploadFile = File(...)):
     """Run inference on an uploaded image."""
-    if not yolo_model:
+    if not YOLO_AVAILABLE or not yolo_model:
         raise HTTPException(status_code=503, detail="YOLO model not available")
     
     with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
@@ -255,6 +507,131 @@ async def predict_image(file: UploadFile = File(...)):
     finally:
         if tmp_path.exists():
             tmp_path.unlink()
+
+
+@app.post("/admin/detect-from-csv")
+async def detect_from_csv(file: UploadFile = File(...)):
+    """
+    Admin-only endpoint: Upload a CSV with a column 'image_path' (local paths).
+    Runs YOLO inference on each image and returns aggregate metrics.
+    """
+    if not YOLO_AVAILABLE or not yolo_model:
+        raise HTTPException(status_code=503, detail="YOLO model not available")
+
+    temp_dir = Path(tempfile.mkdtemp())
+    processed = 0
+    per_product = {}
+
+    try:
+        csv_path = temp_dir / file.filename
+        content = await file.read()
+        csv_path.write_bytes(content)
+
+        with csv_path.open() as f:
+            reader = csv.DictReader(f)
+            if "image_path" not in reader.fieldnames:
+                raise HTTPException(status_code=400, detail="CSV must contain 'image_path' column")
+
+            for row in reader:
+                img_path = Path(row["image_path"]).expanduser()
+                if not img_path.exists():
+                    continue
+                try:
+                    result = run_inference(img_path, yolo_model)
+                    detections = yolo_result_to_detections(result)
+                    for det in detections:
+                        name = det.get("product_name") or det.get("class_name")
+                        if not name:
+                            continue
+                        per_product[name] = per_product.get(name, 0) + 1
+                    processed += 1
+                except Exception:
+                    continue
+
+        summary = []
+        for product, count in per_product.items():
+            summary.append(
+                {
+                    "product_name": product,
+                    "display_name": get_display_name(product),
+                    "count": count,
+                    "stock_level": determine_stock_level(count),
+                }
+            )
+
+        return {
+            "files_processed": processed,
+            "products": summary,
+            "totals": {
+                "high": len([p for p in summary if p["stock_level"] == "HIGH"]),
+                "medium": len([p for p in summary if p["stock_level"] == "MEDIUM"]),
+                "low": len([p for p in summary if p["stock_level"] == "LOW"]),
+                "out": len([p for p in summary if p["stock_level"] == "OUT"]),
+            },
+        }
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@app.post("/auth/admin/signup")
+def admin_signup(request: schemas.SignupRequest, db: Session = Depends(get_db)):
+    existing = crud.get_admin_by_email(db, request.email)
+    if existing:
+        raise HTTPException(status_code=400, detail="Admin already exists")
+    admin = crud.create_admin_user(db, request.email, hash_password(request.password))
+    return schemas.AuthResponse(email=admin.email, role="admin", token=f"admin-{admin.email}")
+
+
+@app.post("/auth/admin/login")
+def admin_login(request: schemas.LoginRequest, db: Session = Depends(get_db)):
+    admin = crud.get_admin_by_email(db, request.email)
+    if not admin or not verify_password(request.password, admin.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return schemas.AuthResponse(email=admin.email, role="admin", token=f"admin-{admin.email}")
+
+
+@app.post("/auth/user/signup")
+def user_signup(request: schemas.SignupRequest, db: Session = Depends(get_db)):
+    existing = crud.get_user_by_email(db, request.email)
+    if existing:
+        raise HTTPException(status_code=400, detail="User already exists")
+    user = crud.create_user_account(db, request.email, hash_password(request.password))
+    return schemas.AuthResponse(email=user.email, role="user", token=f"user-{user.email}")
+
+
+@app.post("/auth/user/login")
+def user_login(request: schemas.LoginRequest, db: Session = Depends(get_db)):
+    user = crud.get_user_by_email(db, request.email)
+    if not user or not verify_password(request.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return schemas.AuthResponse(email=user.email, role="user", token=f"user-{user.email}")
+
+
+@app.on_event("startup")
+def seed_mock_users():
+    """Seed mock admin and user accounts for quick login."""
+    from backend.database import SessionLocal
+    db = SessionLocal()
+    try:
+        admin_mocks = [
+            ("admin1@example.com", "adminpass1"),
+            ("admin2@example.com", "adminpass2"),
+            ("admin3@example.com", "adminpass3"),
+        ]
+        for email, pwd in admin_mocks:
+            if not crud.get_admin_by_email(db, email):
+                crud.create_admin_user(db, email, hash_password(pwd))
+
+        user_mocks = [
+            ("user1@example.com", "userpass1"),
+            ("user2@example.com", "userpass2"),
+            ("user3@example.com", "userpass3"),
+        ]
+        for email, pwd in user_mocks:
+            if not crud.get_user_by_email(db, email):
+                crud.create_user_account(db, email, hash_password(pwd))
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":

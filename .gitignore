@@ -8,6 +8,9 @@ virtual/
 environment/
 node_modules/
 yolo/runs/
+# Allow committing the Colab run artifacts when needed
+!yolo/runs/detect/train_colab/
+!yolo/runs/detect/train_colab/**
 # Local Colab artifacts
 omnishelf_colab/
 omnishelf_colab.zip

@@ -15,7 +15,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from yolo.utils import load_model, run_inference, yolo_result_to_detections
 
-MODEL_PATH = Path(__file__).resolve().parent / "runs" / "detect" / "train" / "weights" / "best.pt"
+MODEL_PATH = Path(__file__).resolve().parent / "runs" / "detect" / "train_colab" / "weights" / "best.pt"
 REAL_SHELF_DIR = Path(__file__).resolve().parent / "dataset" / "real_shelves" / "images"
 STRESS_TEST_DIR = Path(__file__).resolve().parent / "dataset" / "real_shelves" / "stress_test"
 OUTPUT_CSV = Path(__file__).resolve().parent / "real_shelf_evaluation.csv"

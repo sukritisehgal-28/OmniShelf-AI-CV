@@ -14,8 +14,8 @@ load_dotenv()
 class Settings(BaseModel):
     database_url: str = os.getenv(
         "DATABASE_URL",
-        # Default to local Postgres instance; override via .env or environment
-        "postgresql://sukritisehgal@localhost:5434/omnishelf",
+        # Default to Docker Compose Postgres; override via .env or environment
+        "postgresql://postgres:postgres@localhost:5436/omnishelf",
     )
     api_prefix: str = "/"
 
