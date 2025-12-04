@@ -22,7 +22,7 @@ from backend import models as db_models
 
 # Add parent directory to path to import product_mapping
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from product_mapping import get_grozi_code, get_display_name, get_price, get_category, PRODUCT_NAME_MAP
+from product_mapping import get_grozi_code, get_display_name, get_price, get_category, get_shelf, PRODUCT_NAME_MAP
 
 try:
     from yolo.utils import load_model, run_inference, yolo_result_to_detections
@@ -306,7 +306,7 @@ def smartcart_search(request: schemas.ShoppingListRequest, db: Session = Depends
         grozi_code = get_grozi_code(item_name)
 
         # If not found directly, try fuzzy search in product names
-        if grozi_code == item_name:  # No match found
+        if not grozi_code:  # No match found
             # Search through all product display names
             found = False
             for code, display in PRODUCT_NAME_MAP.items():
@@ -335,8 +335,11 @@ def smartcart_search(request: schemas.ShoppingListRequest, db: Session = Depends
         stock = crud.get_product_stock(db, grozi_code)
         count = stock["total_count"] if stock else 0
 
-        shelf_id: Optional[str] = None
-        if planogram:
+        # Get shelf from product mapping (always available)
+        shelf_id = get_shelf(grozi_code)
+        
+        # Override with planogram or stock data if available
+        if planogram and planogram.shelf_id:
             shelf_id = planogram.shelf_id
         elif stock and stock["shelf_ids"]:
             shelf_id = stock["shelf_ids"][0]
@@ -605,16 +608,51 @@ async def predict_single_product(file: UploadFile = File(...)):
     if not YOLO_AVAILABLE or not yolo_model:
         raise HTTPException(status_code=503, detail="YOLO model not available")
     
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = Path(tmp.name)
+    # Read file content first
+    content = await file.read()
     
+    if not content or len(content) == 0:
+        raise HTTPException(status_code=400, detail="Empty file uploaded")
+    
+    # Write to temp file - always use .jpg for compatibility
+    tmp_path = None
     try:
-        # Run inference
+        # Use PIL to open and re-save the image to ensure it's valid
+        from PIL import Image, ImageEnhance
+        import io
+        
+        # Open image from bytes
+        img = Image.open(io.BytesIO(content))
+        
+        # Convert to RGB if necessary (handles PNG with transparency, etc.)
+        if img.mode in ('RGBA', 'LA', 'P'):
+            img = img.convert('RGB')
+        
+        # Resize if too large (helps with detection)
+        max_size = 1024
+        if max(img.size) > max_size:
+            ratio = max_size / max(img.size)
+            new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+            img = img.resize(new_size, Image.LANCZOS)
+        
+        # Enhance contrast slightly to help with detection
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.1)
+        
+        # Save as JPEG to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg', mode='wb') as tmp:
+            tmp_path = Path(tmp.name)
+            img.save(tmp_path, 'JPEG', quality=95)
+        
+        # Verify file exists and has content
+        if not tmp_path.exists() or tmp_path.stat().st_size == 0:
+            raise HTTPException(status_code=400, detail="Failed to save uploaded image")
+        
+        # Run inference with very low threshold to catch more detections
         result = run_inference(
             tmp_path, 
             yolo_model, 
-            conf=0.3,  # Lower threshold for single product
+            conf=0.1,  # Very low threshold for real-world images
             iou=0.5
         )
         detections = yolo_result_to_detections(result)
@@ -622,13 +660,13 @@ async def predict_single_product(file: UploadFile = File(...)):
         if not detections:
             return {
                 "found": False,
-                "message": "Could not identify the product. Try a clearer image.",
+                "message": "Could not identify the product. Try uploading a clearer image of the product label/packaging.",
                 "product": None
             }
         
         # Get best detection
         best = max(detections, key=lambda d: d.get("confidence", 0))
-        grozi_code = best.get("class_name", "")
+        grozi_code = best.get("raw_class", "")  # raw_class contains the grozi code like "grozi_42"
         
         return {
             "found": True,
@@ -637,11 +675,16 @@ async def predict_single_product(file: UploadFile = File(...)):
                 "display_name": get_display_name(grozi_code),
                 "category": get_category(grozi_code),
                 "price": get_price(grozi_code),
-                "confidence": best.get("confidence", 0),
+                "aisle": get_shelf(grozi_code),
             }
         }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in predict_product: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
     finally:
-        if tmp_path.exists():
+        if tmp_path and tmp_path.exists():
             tmp_path.unlink()
 
 

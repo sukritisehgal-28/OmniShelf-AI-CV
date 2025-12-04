@@ -107,22 +107,22 @@ export function ShelfScanner() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl p-6">
+      <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6">
         <div className="flex items-center gap-3 mb-2">
-          <Camera className="w-8 h-8" />
-          <h2 className="text-[24px]" style={{ fontWeight: 800 }}>
+          <Camera className="w-8 h-8" style={{ color: '#ffffff' }} />
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#ffffff' }}>
             Shelf Scanner
           </h2>
         </div>
-        <p className="text-blue-100 text-[14px]">
+        <p style={{ fontSize: '14px', color: '#e0e7ff' }}>
           Upload a shelf image to detect and count products using two-stage AI detection
         </p>
-        <div className="mt-4 flex items-center gap-4 text-[12px]">
-          <div style={{ backgroundColor: '#ffffff', color: '#1d4ed8', fontWeight: 600, padding: '4px 12px', borderRadius: '9999px' }}>
+        <div className="mt-4 flex items-center gap-4">
+          <div style={{ backgroundColor: '#ffffff', color: '#1d4ed8', fontWeight: 600, padding: '6px 14px', borderRadius: '9999px', fontSize: '12px' }}>
             Stage 1: SKU-110K Detection
           </div>
-          <span style={{ color: '#ffffff', fontWeight: 700, fontSize: '16px' }}>→</span>
-          <div style={{ backgroundColor: '#ffffff', color: '#4338ca', fontWeight: 600, padding: '4px 12px', borderRadius: '9999px' }}>
+          <span style={{ color: '#ffffff', fontWeight: 700, fontSize: '18px' }}>→</span>
+          <div style={{ backgroundColor: '#ffffff', color: '#4338ca', fontWeight: 600, padding: '6px 14px', borderRadius: '9999px', fontSize: '12px' }}>
             Stage 2: Grozi-120 Classification
           </div>
         </div>
@@ -173,33 +173,37 @@ export function ShelfScanner() {
           className="hidden"
         />
 
-        {/* Upload Button - Always visible */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full mt-4 bg-gray-100 text-gray-700 py-3 rounded-xl text-[15px] hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 border border-gray-300"
-          style={{ fontWeight: 600 }}
-        >
-          <Upload className="w-5 h-5" />
-          {selectedImage ? "Choose Different Image" : "Select Image"}
-        </button>
-
-        {/* Scan Button - Only when image is selected */}
+        {/* Run Model Button - Only when image is selected */}
         {selectedImage && (
           <button
             onClick={handleScan}
             disabled={loading}
-            className="w-full mt-3 bg-blue-600 text-white py-4 rounded-xl text-[15px] hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            style={{ fontWeight: 700 }}
+            style={{ 
+              width: '100%', 
+              marginTop: '16px', 
+              backgroundColor: loading ? '#9ca3af' : '#2563eb', 
+              color: '#ffffff', 
+              padding: '16px', 
+              borderRadius: '12px', 
+              fontSize: '15px', 
+              fontWeight: 700,
+              border: 'none',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
           >
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Scanning Shelf...
+                Running Detection...
               </>
             ) : (
               <>
                 <Camera className="w-5 h-5" />
-                Scan Shelf
+                Run Model
               </>
             )}
           </button>

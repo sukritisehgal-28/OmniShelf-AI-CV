@@ -13,7 +13,7 @@ interface SearchResult {
     display_name: string;
     category: string;
     price: number;
-    confidence: number;
+    aisle?: string;
     stock_count?: number;
     shelf_id?: string;
     stock_level?: string;
@@ -200,8 +200,22 @@ export function VisualSearch({ onNavigate }: VisualSearchProps) {
             <button
               onClick={handleSearch}
               disabled={loading}
-              className="w-full mt-6 bg-purple-600 text-white py-4 rounded-xl text-[15px] hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-              style={{ fontWeight: 700 }}
+              style={{
+                width: '100%',
+                marginTop: '24px',
+                backgroundColor: loading ? '#9ca3af' : '#2563eb',
+                color: '#ffffff',
+                padding: '16px',
+                borderRadius: '12px',
+                fontSize: '15px',
+                fontWeight: 700,
+                border: 'none',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
             >
               {loading ? (
                 <>
@@ -234,9 +248,6 @@ export function VisualSearch({ onNavigate }: VisualSearchProps) {
                   <h2 className="text-[18px] text-[#111827]" style={{ fontWeight: 700 }}>
                     Product Found!
                   </h2>
-                  <span className="ml-auto text-[13px] text-[#6b7280]">
-                    {(result.product.confidence * 100).toFixed(1)}% confidence
-                  </span>
                 </div>
 
                 <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 mb-6">
@@ -261,8 +272,8 @@ export function VisualSearch({ onNavigate }: VisualSearchProps) {
                   {/* Aisle */}
                   <div className="bg-[#f8f9fa] rounded-xl p-4 text-center">
                     <MapPin className="w-5 h-5 text-blue-500 mx-auto mb-2" />
-                    <p className="text-[24px] text-[#111827]" style={{ fontWeight: 800 }}>
-                      {result.product.shelf_id || "?"}
+                    <p className="text-[18px] text-[#111827]" style={{ fontWeight: 800 }}>
+                      {result.product.aisle || result.product.shelf_id || "Aisle 1"}
                     </p>
                     <p className="text-[12px] text-[#6b7280]">Location</p>
                   </div>

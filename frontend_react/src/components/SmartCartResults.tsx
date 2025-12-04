@@ -8,6 +8,23 @@ interface SmartCartResultsProps {
   results: ShoppingListResult[];
 }
 
+const getCategoryColor = (category: string | null | undefined): string => {
+  const colors: Record<string, string> = {
+    "Candy & Chocolate": "bg-pink-100 text-pink-800",
+    "Candy & Gum": "bg-pink-100 text-pink-800",
+    "Beverages": "bg-blue-100 text-blue-800",
+    "Snacks": "bg-yellow-100 text-yellow-800",
+    "Personal Care": "bg-purple-100 text-purple-800",
+    "Food": "bg-green-100 text-green-800",
+    "Breakfast": "bg-orange-100 text-orange-800",
+    "Health": "bg-red-100 text-red-800",
+    "Cleaning": "bg-cyan-100 text-cyan-800",
+    "Household": "bg-indigo-100 text-indigo-800",
+    "General": "bg-gray-100 text-gray-700",
+  };
+  return colors[category || ""] || colors["General"];
+};
+
 export function SmartCartResults({ hasSearched, loading, error, results }: SmartCartResultsProps) {
   const inStockResults = results.filter((r) => r.found && (r.stock_count ?? 0) > 0);
   const outOfStock = results.filter((r) => r.found && (r.stock_count ?? 0) === 0);
@@ -85,13 +102,16 @@ export function SmartCartResults({ hasSearched, loading, error, results }: Smart
                 Item
               </th>
               <th className="text-left px-6 py-4 text-[13px] text-[#6b7280]" style={{ fontWeight: 700 }}>
+                Category
+              </th>
+              <th className="text-left px-6 py-4 text-[13px] text-[#6b7280]" style={{ fontWeight: 700 }}>
                 Quantity
               </th>
               <th className="text-left px-6 py-4 text-[13px] text-[#6b7280]" style={{ fontWeight: 700 }}>
                 Price
               </th>
               <th className="text-left px-6 py-4 text-[13px] text-[#6b7280]" style={{ fontWeight: 700 }}>
-                Shelf
+                Aisle
               </th>
             </tr>
           </thead>
@@ -105,6 +125,11 @@ export function SmartCartResults({ hasSearched, loading, error, results }: Smart
               >
                 <td className="px-6 py-5 text-[14px] text-[#111827]" style={{ fontWeight: 600 }}>
                   {result.display_name || result.item || result.product_name || "—"}
+                </td>
+                <td className="px-6 py-5 text-[14px]">
+                  <span className={`px-2 py-1 rounded-full text-[12px] font-medium ${getCategoryColor(result.category)}`}>
+                    {result.category || "—"}
+                  </span>
                 </td>
                 <td className="px-6 py-5 text-[14px] text-[#111827]">
                   {result.stock_count !== undefined ? result.stock_count : "—"}
