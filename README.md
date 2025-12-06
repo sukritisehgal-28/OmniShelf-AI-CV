@@ -1,4 +1,4 @@
-# OmniShelf AI
+# OmniShelf-AI
 
 **Intelligent Retail Shelf Management Using Computer Vision**
 
