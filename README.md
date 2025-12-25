@@ -9,7 +9,7 @@ An end-to-end retail shelf intelligence platform powered by a custom-trained **Y
 ![Tech Stack](https://img.shields.io/badge/Stack-FastAPI%20%7C%20React%20%7C%20PostgreSQL%20%7C%20YOLOv11-orange)
 
 **Author:** Sukriti Sehgal  
-**Repository:** [github.com/sukritisehgal-28/OmniShelf_ai](https://github.com/sukritisehgal-28/OmniShelf_ai)
+**Repository:** https://github.com/sukritisehgal-28/OmniShelf-AI-CV
 
 ---
 
